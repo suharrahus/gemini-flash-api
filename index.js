@@ -4,6 +4,13 @@ import multer from 'multer';
 import fs from 'fs/promises';
 import { GoogleGenAI } from '@google/genai';
 import { json } from 'stream/consumers';
+import path from 'path';
+import cors from 'cors';
+import { fileURLToPath } from 'url';
+
+
+const _filename = fileURLToPath(import.meta.url);
+const _dirname = path.dirname(_filename);
 
 const app = express();
 const upload = multer();
@@ -11,7 +18,9 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
+app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(_dirname, 'public')));
 
 const PORT = 3000;
 app.listen(PORT, () => {
@@ -34,14 +43,20 @@ function extractText(resp){
 }
 
 app.post('/generate-text', async (req, res) => {
-    try{
+    try {
         const { prompt } = req.body;
+        if (!prompt) {
+            return res.status(400).json({ error: 'Prompt is required.' });
+        }
+
         const response = await ai.models.generateContent({
             model: GEMINI_MODEL,
-            contents: prompt
+            contents: prompt,
         });
-        res.json({ result: extractText(response) });
-    }catch (err){
+
+        res.json({ result: response.text });
+    } catch (err) {
+        console.error('API Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
